@@ -53,11 +53,12 @@ echo "[+] 开始运行测试..."
 
 RESULT_FILE="$WORKDIR/result.txt"
 
-# ================= 运行（稳定版本） =================
+script -q -c "sudo ./prober/spoofer-prober" /dev/null <<EOF > "$RESULT_FILE" 2>&1
+yes
+no
+EOF
 
-sudo bash -c 'echo -e "yes\nno" | ./prober/spoofer-prober' > "$RESULT_FILE" 2>&1
-
-echo "[+] 测试完成，解析结果..."
+echo "[+] 测试完成"
 
 # ================= 提取报告链接 =================
 

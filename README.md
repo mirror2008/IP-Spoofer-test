@@ -28,32 +28,13 @@
 
 ---
 
-## ⚙️ 使用方法
+## ⚙️ 使用方法（推荐）
 
-### 1️⃣ 克隆项目
-
-```bash
-git clone https://github.com/mirror2008/IP-Spoofer-test.git
-cd IP-Spoofer-test
-```
-
----
-
-### 2️⃣ 赋予执行权限
+### 🚀 一键运行（直接下载脚本）
 
 ```bash
-chmod +x spoofer_auto.sh
-```
+wget https://github.com/mirror2008/IP-Spoofer-test/raw/main/spoofer_auto.sh -O spoofer_auto.sh && chmod +x spoofer_auto.sh && sudo ./spoofer_auto.sh
 
----
-
-### 3️⃣ 运行脚本（必须 root）
-
-```bash
-sudo ./spoofer_auto.sh
-```
-
----
 
 ## 📊 输出示例
 

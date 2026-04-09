@@ -63,11 +63,21 @@ echo "[+] 开始运行测试..."
 set +e
 
 expect <<EOF > "$RESULT_FILE" 2>&1
+set timeout -1
 spawn sudo $PROBER_PATH
-expect "Allow anonymized"
-send "yes\r"
-expect "Allow unanonymized"
-send "no\r"
+
+expect {
+    -re ".*Allow anonymized.*" {
+        send "yes\r"
+    }
+}
+
+expect {
+    -re ".*Allow unanonymized.*" {
+        send "no\r"
+    }
+}
+
 expect eof
 EOF
 
@@ -76,6 +86,14 @@ set -e
 
 echo "[DEBUG] spoofer 返回码: $RET"
 echo "[+] 测试完成"
+
+# ================= 成功检测 =================
+if ! grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
+    echo "❌ 测试未成功执行（未进入核心测试阶段）"
+    echo "======== 调试输出 ========"
+    cat "$RESULT_FILE"
+    exit 1
+fi
 
 # ================= 提取报告链接 =================
 REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)

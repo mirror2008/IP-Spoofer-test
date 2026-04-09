@@ -3,9 +3,10 @@
 set -e
 
 echo "==== Spoofer 自动检测脚本 ===="
-echo "[DEBUG] 使用路径: $PROBER_PATH"
+
 WORKDIR="$HOME/spoofer-auto"
 SRC_DIR="$WORKDIR/spoofer-1.4.13"
+RESULT_FILE="$WORKDIR/result.txt"
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
@@ -25,48 +26,61 @@ fi
 cd "$SRC_DIR"
 
 # ================= 检测是否已编译 =================
-
 if [ -f "./prober/spoofer-prober" ]; then
     echo "[+] 检测到已编译版本，跳过编译"
 else
     echo "[+] 未检测到编译结果，开始编译..."
 
-    # 安装依赖
     apt update
     apt install -y build-essential libpcap-dev libssl-dev \
         qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
         protobuf-compiler libprotobuf-dev pkg-config
 
-    # 编译
     ./configure
     make -j$(nproc)
 fi
 
-# ================= 二次确认 =================
-
-if [ ! -f "./prober/spoofer-prober" ]; then
-    echo "❌ 编译失败，未找到 spoofer-prober"
-    exit 1
-fi
-echo "[+] 开始运行测试..."
-
-RESULT_FILE="$WORKDIR/result.txt"
-
+# ================= 检查 =================
 PROBER_PATH="$SRC_DIR/prober/spoofer-prober"
 
-script -q -c "sudo $PROBER_PATH" /dev/null <<EOF > "$RESULT_FILE" 2>&1
-yes
-no
+if [ ! -x "$PROBER_PATH" ]; then
+    echo "❌ spoofer-prober 不存在或不可执行"
+    exit 1
+fi
+
+echo "[+] 使用路径: $PROBER_PATH"
+
+# ================= 安装 expect =================
+if ! command -v expect >/dev/null 2>&1; then
+    echo "[+] 安装 expect..."
+    apt update
+    apt install -y expect
+fi
+
+echo "[+] 开始运行测试..."
+
+# ================= 运行 =================
+set +e
+
+expect <<EOF > "$RESULT_FILE" 2>&1
+spawn sudo $PROBER_PATH
+expect "Allow anonymized"
+send "yes\r"
+expect "Allow unanonymized"
+send "no\r"
+expect eof
 EOF
 
+RET=$?
+set -e
+
+echo "[DEBUG] spoofer 返回码: $RET"
 echo "[+] 测试完成"
 
 # ================= 提取报告链接 =================
-
 REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)
 
 # ================= 解析 =================
-
 OUT_PRIV=$(grep -i "private addresses, outbound" "$RESULT_FILE" || true)
 OUT_ROUT=$(grep -i "routable addresses, outbound" "$RESULT_FILE" || true)
 IN_PRIV=$(grep -i "private addresses, inbound" "$RESULT_FILE" || true)
@@ -95,7 +109,6 @@ else
 fi
 
 # ================= 输出 =================
-
 echo ""
 echo "========== 检测结果 =========="
 
@@ -121,8 +134,7 @@ fi
 
 echo "👉 $FINAL"
 
-# ================= 报告链接 =================
-
+# ================= 报告 =================
 echo ""
 echo "========== 完整测评报告 =========="
 
@@ -138,7 +150,6 @@ echo ""
 echo "[+] 原始结果保存在: $RESULT_FILE"
 
 # ================= 广告 =================
-
 echo ""
 echo "=================================================="
 echo "☁️ 七九网络 · 079IDC 高性价比BGP云服务器"

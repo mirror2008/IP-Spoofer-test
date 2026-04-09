@@ -2,7 +2,7 @@
 
 set -e
 
-echo "==== Spoofer 自动检测脚本（最终稳定版） ===="
+echo "==== Spoofer 自动检测脚本（最终版） ===="
 
 WORKDIR="$HOME/spoofer-auto"
 SRC_DIR="$WORKDIR/spoofer-1.4.13"
@@ -57,74 +57,58 @@ if ! command -v expect >/dev/null 2>&1; then
     apt install -y expect
 fi
 
-echo "[+] 开始运行测试..."
+echo "[+] 启动测试..."
 
 # ================= 运行 =================
 set +e
 
-expect <<EOF > "$RESULT_FILE" 2>&1
+expect <<EOF > "$RESULT_FILE" 2>&1 &
 log_user 1
 set timeout 30
 
-puts "DEBUG: 启动 spoofer..."
-
 spawn sudo $PROBER_PATH
 
-puts "DEBUG: 等待第一个提示..."
-
-expect {
-    "Allow anonymized" {
-        puts "DEBUG: 命中 anonymized 提示"
-    }
-    timeout {
-        puts "ERROR: 未匹配到 anonymized 提示"
-        exit 1
-    }
-}
-
+expect "Allow anonymized"
 send "yes\r"
-puts "DEBUG: 已发送 yes"
 
-puts "DEBUG: 等待第二个提示..."
-
-expect {
-    "Allow unanonymized" {
-        puts "DEBUG: 命中 unanonymized 提示"
-    }
-    timeout {
-        puts "ERROR: 未匹配到 unanonymized 提示"
-        exit 1
-    }
-}
-
+expect "Allow unanonymized"
 send "no\r"
-puts "DEBUG: 已发送 no"
-
-puts "DEBUG: 等待测试完成..."
 
 expect eof
-puts "DEBUG: spoofer 运行结束"
 EOF
 
-RET=$?
+EXPECT_PID=$!
 set -e
 
-echo "DEBUG: spoofer 返回码: $RET"
-echo "[+] 测试完成"
+# ================= 实时进度 =================
+echo "[+] 正在运行测试（最长等待10分钟）..."
 
-# ================= 输出调试 =================
+for i in {1..600}; do
+    if grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
+        echo "[+] 测试完成"
+        break
+    fi
+
+    # 实时进度显示
+    PROGRESS=$(grep -E "IPv4:|IPv6:" "$RESULT_FILE" | tail -n 1)
+    if [ -n "$PROGRESS" ]; then
+        echo -ne "\r进度: $PROGRESS"
+    fi
+
+    sleep 1
+done
+
 echo ""
-echo "========== 原始输出 =========="
-cat "$RESULT_FILE"
-echo "================================"
 
-# ================= 成功检测 =================
+# ================= 超时检测 =================
 if ! grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
-    echo "❌ 测试未成功执行（未进入核心测试阶段）"
+    echo "❌ 测试超时或失败"
+    echo "======== 原始输出 ========"
+    tail -n 50 "$RESULT_FILE"
     exit 1
 fi
 
-# ================= 提取报告链接 =================
+# ================= 提取报告 =================
 REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)
 
 # ================= 解析 =================
@@ -172,7 +156,7 @@ echo ""
 echo "========== 综合判断 =========="
 
 if [ -z "$OUT_ROUT" ]; then
-    FINAL="❌ 测试失败（无有效结果）"
+    FINAL="❌ 测试失败"
 elif echo "$OUT_ROUT" | grep -qi "blocked" && echo "$ADJ" | grep -qi "can spoof"; then
     FINAL="⚠️ 半开放网络"
 elif echo "$OUT_ROUT" | grep -qi "blocked"; then

@@ -2,7 +2,7 @@
 
 set -e
 
-echo "==== IP-Spoofer 自动检测脚本 ===="
+echo "==== Spoofer 自动检测脚本 ===="
 
 WORKDIR="$HOME/spoofer-auto"
 mkdir -p "$WORKDIR"
@@ -45,6 +45,10 @@ echo "no"
 ) | sudo ./prober/spoofer-prober > "$RESULT_FILE" 2>&1
 
 echo "[+] 测试完成，解析结果..."
+
+# ================= 提取报告链接 =================
+
+REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)
 
 # ================= 解析 =================
 
@@ -102,6 +106,19 @@ fi
 
 echo "👉 $FINAL"
 
+# ================= 输出报告链接 =================
+
+echo ""
+echo "========== 完整测评报告 =========="
+
+if [ -n "$REPORT_URL" ]; then
+    echo "Test Complete."
+    echo "Your test results:"
+    echo "    $REPORT_URL"
+else
+    echo "⚠️ 未检测到报告链接（可能网络问题或解析失败）"
+fi
+
 echo ""
 echo "[+] 原始结果保存在: $RESULT_FILE"
 
@@ -113,7 +130,7 @@ echo "☁️ 七九网络 · 079IDC 高性价比BGP云服务器"
 echo "✔ 正规企业 · 持证经营"
 echo "✔ BGP 多线接入 · 南北互通 · 国内外访问均衡"
 echo "✔ KVM 架构 · 性能真实不虚标"
-echo "✔ 适合建站 / 开服 / 业务部署 / 长期运行"
+echo "✔ 适合建站 / 代理 / 业务部署 / 长期运行"
 echo "✔ 线路干净 · 价格克制 · 运维不折腾"
 echo ""
 echo "官网：https://079idc.net"

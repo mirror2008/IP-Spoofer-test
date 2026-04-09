@@ -3,7 +3,7 @@
 set -e
 
 echo "==== Spoofer 自动检测脚本 ===="
-
+echo "[DEBUG] 使用路径: $PROBER_PATH"
 WORKDIR="$HOME/spoofer-auto"
 SRC_DIR="$WORKDIR/spoofer-1.4.13"
 

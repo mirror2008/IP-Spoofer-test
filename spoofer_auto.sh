@@ -2,7 +2,7 @@
 
 set -e
 
-echo "==== Spoofer 自动检测脚本（DEBUG版） ===="
+echo "==== Spoofer 自动检测脚本（最终稳定版） ===="
 
 WORKDIR="$HOME/spoofer-auto"
 SRC_DIR="$WORKDIR/spoofer-1.4.13"
@@ -48,7 +48,7 @@ if [ ! -x "$PROBER_PATH" ]; then
     exit 1
 fi
 
-echo "[DEBUG] 使用路径: $PROBER_PATH"
+echo "DEBUG: 使用路径: $PROBER_PATH"
 
 # ================= 安装 expect =================
 if ! command -v expect >/dev/null 2>&1; then
@@ -66,57 +66,57 @@ expect <<EOF > "$RESULT_FILE" 2>&1
 log_user 1
 set timeout 30
 
-puts "[DEBUG] 启动 spoofer..."
+puts "DEBUG: 启动 spoofer..."
 
 spawn sudo $PROBER_PATH
 
-puts "[DEBUG] 等待第一个提示..."
+puts "DEBUG: 等待第一个提示..."
 
 expect {
     "Allow anonymized" {
-        puts "[DEBUG] 命中 anonymized 提示"
+        puts "DEBUG: 命中 anonymized 提示"
     }
     timeout {
-        puts "[ERROR] 未匹配到 anonymized 提示"
+        puts "ERROR: 未匹配到 anonymized 提示"
         exit 1
     }
 }
 
 send "yes\r"
-puts "[DEBUG] 已发送 yes"
+puts "DEBUG: 已发送 yes"
 
-puts "[DEBUG] 等待第二个提示..."
+puts "DEBUG: 等待第二个提示..."
 
 expect {
     "Allow unanonymized" {
-        puts "[DEBUG] 命中 unanonymized 提示"
+        puts "DEBUG: 命中 unanonymized 提示"
     }
     timeout {
-        puts "[ERROR] 未匹配到 unanonymized 提示"
+        puts "ERROR: 未匹配到 unanonymized 提示"
         exit 1
     }
 }
 
 send "no\r"
-puts "[DEBUG] 已发送 no"
+puts "DEBUG: 已发送 no"
 
-puts "[DEBUG] 等待测试完成..."
+puts "DEBUG: 等待测试完成..."
 
 expect eof
-puts "[DEBUG] spoofer 运行结束"
+puts "DEBUG: spoofer 运行结束"
 EOF
 
 RET=$?
 set -e
 
-echo "[DEBUG] spoofer 返回码: $RET"
+echo "DEBUG: spoofer 返回码: $RET"
 echo "[+] 测试完成"
 
-# ================= DEBUG输出 =================
+# ================= 输出调试 =================
 echo ""
-echo "========== 原始输出（DEBUG） =========="
+echo "========== 原始输出 =========="
 cat "$RESULT_FILE"
-echo "======================================"
+echo "================================"
 
 # ================= 成功检测 =================
 if ! grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
@@ -124,7 +124,7 @@ if ! grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
     exit 1
 fi
 
-# ================= 提取报告 =================
+# ================= 提取报告链接 =================
 REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)
 
 # ================= 解析 =================

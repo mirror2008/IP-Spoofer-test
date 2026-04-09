@@ -2,7 +2,7 @@
 
 set -e
 
-echo "==== Spoofer 自动检测脚本 ===="
+echo "==== Spoofer 自动检测脚本（DEBUG版） ===="
 
 WORKDIR="$HOME/spoofer-auto"
 SRC_DIR="$WORKDIR/spoofer-1.4.13"
@@ -25,7 +25,7 @@ fi
 
 cd "$SRC_DIR"
 
-# ================= 检测是否已编译 =================
+# ================= 编译检测 =================
 if [ -f "./prober/spoofer-prober" ]; then
     echo "[+] 检测到已编译版本，跳过编译"
 else
@@ -48,7 +48,7 @@ if [ ! -x "$PROBER_PATH" ]; then
     exit 1
 fi
 
-echo "[+] 使用路径: $PROBER_PATH"
+echo "[DEBUG] 使用路径: $PROBER_PATH"
 
 # ================= 安装 expect =================
 if ! command -v expect >/dev/null 2>&1; then
@@ -63,22 +63,47 @@ echo "[+] 开始运行测试..."
 set +e
 
 expect <<EOF > "$RESULT_FILE" 2>&1
-set timeout -1
+log_user 1
+set timeout 30
+
+puts "[DEBUG] 启动 spoofer..."
+
 spawn sudo $PROBER_PATH
 
+puts "[DEBUG] 等待第一个提示..."
+
 expect {
-    -re ".*Allow anonymized.*" {
-        send "yes\r"
+    "Allow anonymized" {
+        puts "[DEBUG] 命中 anonymized 提示"
+    }
+    timeout {
+        puts "[ERROR] 未匹配到 anonymized 提示"
+        exit 1
     }
 }
 
+send "yes\r"
+puts "[DEBUG] 已发送 yes"
+
+puts "[DEBUG] 等待第二个提示..."
+
 expect {
-    -re ".*Allow unanonymized.*" {
-        send "no\r"
+    "Allow unanonymized" {
+        puts "[DEBUG] 命中 unanonymized 提示"
+    }
+    timeout {
+        puts "[ERROR] 未匹配到 unanonymized 提示"
+        exit 1
     }
 }
+
+send "no\r"
+puts "[DEBUG] 已发送 no"
+
+puts "[DEBUG] 等待测试完成..."
 
 expect eof
+puts "[DEBUG] spoofer 运行结束"
 EOF
 
 RET=$?
@@ -87,15 +112,19 @@ set -e
 echo "[DEBUG] spoofer 返回码: $RET"
 echo "[+] 测试完成"
 
+# ================= DEBUG输出 =================
+echo ""
+echo "========== 原始输出（DEBUG） =========="
+cat "$RESULT_FILE"
+echo "======================================"
+
 # ================= 成功检测 =================
 if ! grep -q "IPv4 Result Summary" "$RESULT_FILE"; then
     echo "❌ 测试未成功执行（未进入核心测试阶段）"
-    echo "======== 调试输出 ========"
-    cat "$RESULT_FILE"
     exit 1
 fi
 
-# ================= 提取报告链接 =================
+# ================= 提取报告 =================
 REPORT_URL=$(grep -oE "https://spoofer.caida.org/report.php\\?sessionkey=[a-z0-9]+" "$RESULT_FILE" | head -n 1 || true)
 
 # ================= 解析 =================
@@ -142,12 +171,14 @@ printf "%-30s %-20s\n" "同网段伪造能力" "$ADJ_RES"
 echo ""
 echo "========== 综合判断 =========="
 
-if echo "$OUT_ROUT" | grep -qi "blocked" && echo "$ADJ" | grep -qi "can spoof"; then
-    FINAL="⚠️ 半开放网络（仅同网段可伪造）"
+if [ -z "$OUT_ROUT" ]; then
+    FINAL="❌ 测试失败（无有效结果）"
+elif echo "$OUT_ROUT" | grep -qi "blocked" && echo "$ADJ" | grep -qi "can spoof"; then
+    FINAL="⚠️ 半开放网络"
 elif echo "$OUT_ROUT" | grep -qi "blocked"; then
-    FINAL="✅ 安全网络（已启用过滤）"
+    FINAL="✅ 安全网络"
 else
-    FINAL="🔴 高危网络（可伪造公网IP）"
+    FINAL="🔴 高危网络"
 fi
 
 echo "👉 $FINAL"

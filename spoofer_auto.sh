@@ -48,12 +48,13 @@ if [ ! -f "./prober/spoofer-prober" ]; then
     echo "❌ 编译失败，未找到 spoofer-prober"
     exit 1
 fi
-
 echo "[+] 开始运行测试..."
 
 RESULT_FILE="$WORKDIR/result.txt"
 
-script -q -c "sudo ./prober/spoofer-prober" /dev/null <<EOF > "$RESULT_FILE" 2>&1
+PROBER_PATH="$SRC_DIR/prober/spoofer-prober"
+
+script -q -c "sudo $PROBER_PATH" /dev/null <<EOF > "$RESULT_FILE" 2>&1
 yes
 no
 EOF

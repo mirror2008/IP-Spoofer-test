@@ -5,6 +5,8 @@ set -e
 echo "==== Spoofer 自动检测脚本 ===="
 
 WORKDIR="$HOME/spoofer-auto"
+SRC_DIR="$WORKDIR/spoofer-1.4.13"
+
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
@@ -15,34 +17,45 @@ if [ ! -f "spoofer-1.4.13.tar.gz" ]; then
 fi
 
 # ================= 解压 =================
-if [ ! -d "spoofer-1.4.13" ]; then
+if [ ! -d "$SRC_DIR" ]; then
     echo "[+] 解压源码..."
     tar -zxvf spoofer-1.4.13.tar.gz
 fi
 
-cd spoofer-1.4.13
+cd "$SRC_DIR"
 
-# ================= 安装依赖 =================
-echo "[+] 安装依赖..."
-apt update
-apt install -y build-essential libpcap-dev libssl-dev \
-    qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
-    protobuf-compiler libprotobuf-dev pkg-config
+# ================= 检测是否已编译 =================
 
-# ================= 编译 =================
-echo "[+] 开始编译..."
-./configure
-make -j$(nproc)
+if [ -f "./prober/spoofer-prober" ]; then
+    echo "[+] 检测到已编译版本，跳过编译"
+else
+    echo "[+] 未检测到编译结果，开始编译..."
 
-# ================= 运行 =================
+    # 安装依赖
+    apt update
+    apt install -y build-essential libpcap-dev libssl-dev \
+        qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
+        protobuf-compiler libprotobuf-dev pkg-config
+
+    # 编译
+    ./configure
+    make -j$(nproc)
+fi
+
+# ================= 二次确认 =================
+
+if [ ! -f "./prober/spoofer-prober" ]; then
+    echo "❌ 编译失败，未找到 spoofer-prober"
+    exit 1
+fi
+
 echo "[+] 开始运行测试..."
 
 RESULT_FILE="$WORKDIR/result.txt"
 
-(
-echo "yes"
-echo "no"
-) | sudo ./prober/spoofer-prober > "$RESULT_FILE" 2>&1
+# ================= 运行（稳定版本） =================
+
+sudo bash -c 'echo -e "yes\nno" | ./prober/spoofer-prober' > "$RESULT_FILE" 2>&1
 
 echo "[+] 测试完成，解析结果..."
 
@@ -58,7 +71,7 @@ IN_PRIV=$(grep -i "private addresses, inbound" "$RESULT_FILE" || true)
 IN_INT=$(grep -i "internal addresses, inbound" "$RESULT_FILE" || true)
 ADJ=$(grep -i "can spoof" "$RESULT_FILE" || true)
 
-function parse_status() {
+parse_status() {
     if echo "$1" | grep -qi "blocked"; then
         echo "❌ 不可伪造"
     elif echo "$1" | grep -qi "received"; then
@@ -79,7 +92,7 @@ else
     ADJ_RES="❌ 同网段不可伪造"
 fi
 
-# ================= 输出表格 =================
+# ================= 输出 =================
 
 echo ""
 echo "========== 检测结果 =========="
@@ -106,7 +119,7 @@ fi
 
 echo "👉 $FINAL"
 
-# ================= 输出报告链接 =================
+# ================= 报告链接 =================
 
 echo ""
 echo "========== 完整测评报告 =========="
@@ -116,7 +129,7 @@ if [ -n "$REPORT_URL" ]; then
     echo "Your test results:"
     echo "    $REPORT_URL"
 else
-    echo "⚠️ 未检测到报告链接（可能网络问题或解析失败）"
+    echo "⚠️ 未检测到报告链接"
 fi
 
 echo ""
